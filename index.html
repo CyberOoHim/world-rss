@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="theme-color" content="#111111"/>
+<title>WorldWire — Favorites • Recent • Polished</title>
+<link id="pwa-manifest-link" rel="manifest" href=""/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{fontFamily:{serif:['Georgia','serif']}}}}</script>
+<style>
+  body{background:#FAF9F6}
+  details>summary{list-style:none}
+  details>summary::-webkit-details-marker{display:none}
+  .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .star-btn{transition:transform .12s}
+  .star-btn:active{transform:scale(.9)}
+</style>
+<script src="./feeds.js"></script>
+</head>
+<body class="text-zinc-900 antialiased">
+<header class="sticky top-0 z-20 backdrop-blur bg-[#FAF9F6]/90 border-b border-zinc-200">
+  <div class="max-w-[1600px] mx-auto px-4 md:px-6 h-[56px] flex items-center gap-3">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-[10px] bg-zinc-900 text-white grid place-items-center font-bold tracking-tight">W</div>
+      <div class="leading-tight">
+        <div class="font-semibold tracking-tight">WorldWire</div>
+        <div class="text-[11px] text-zinc-500 -mt-0.5">favorites • recent • local</div>
+      </div>
+    </div>
+    <span id="sourceBadge" class="ml-2 hidden md:inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-white border border-zinc-200 text-[12px] text-zinc-600"><span id="netDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span id="sourceText">loading…</span></span>
+    <div class="flex-1"></div>
+    <div class="relative hidden md:block">
+      <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.3-4.3"/></svg></span>
+      <input id="q" type="search" placeholder="Filter sources…" class="w-[280px] h-9 rounded-full border border-zinc-200 bg-white pl-8 pr-3 text-[13px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-300"/>
+    </div>
+    <button id="installBtn" style="display:none" class="h-9 px-3.5 rounded-full bg-zinc-900 text-white text-[13px] font-medium">⤓ Install</button>
+    <button id="clearStorageBtn" title="Clear saved settings" class="hidden md:inline-flex h-8 px-3 rounded-full bg-white border border-zinc-200 text-[11px] hover:border-zinc-300">Reset</button>
+    <span id="offlineHint" class="text-[11px] text-zinc-500 hidden">offline</span>
+  </div>
+</header>
+
+<div class="max-w-[1600px] mx-auto grid md:grid-cols-[320px_1fr] min-h-[calc(100vh-56px)]">
+  <aside class="bg-white md:border-r border-zinc-200 flex flex-col md:sticky md:top-[56px] md:h-[calc(100vh-56px)] md:overflow-hidden order-2 md:order-1">
+    <div class="p-3 border-b border-zinc-100 md:hidden">
+      <div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.3-4.3"/></svg></span><input id="qMobile" type="search" placeholder="Filter sources…" class="w-full h-10 rounded-full border border-zinc-200 bg-[#FAF9F6] pl-9 pr-3 text-[14px]"/></div>
+    </div>
+
+    <div class="flex-1 overflow-auto p-3 space-y-3">
+      <!-- Favorites -->
+      <div id="favoritesSection"></div>
+      <!-- Recent -->
+      <div id="recentSection"></div>
+      <!-- All categories -->
+      <div id="cats" class="space-y-2"></div>
+    </div>
+
+    <!-- Developer Panel — collapsible, default hidden -->
+    <div id="devPanel" class="border-t border-zinc-200 bg-[#fcfbf9]">
+      <div class="flex items-center justify-between px-3 h-11">
+        <div class="flex items-center gap-2">
+          <h4 class="text-[11px] font-semibold tracking-widest uppercase text-zinc-600">Developer</h4>
+          <span class="text-[9px] px-1.5 py-0.5 rounded bg-zinc-900 text-white tracking-wide">localStorage</span>
+          <span id="favCountBadge" class="text-[10px] px-1.5 h-5 grid place-items-center rounded-full bg-amber-100 border border-amber-200 text-amber-700 hidden">0 fav</span>
+        </div>
+        <button id="devToggleBtn" class="h-7 px-3 rounded-full bg-white border border-zinc-200 text-[11px] font-medium hover:border-zinc-300">Show</button>
+      </div>
+      <div id="devContent" style="display:none" class="px-3 pb-3">
+        <p class="text-[11px] leading-[1.5] text-zinc-500">Feeds in <code>feeds.json</code>. Favorites & recent auto-saved. Click Show to debug.</p>
+        <div class="mt-2.5 flex flex-wrap gap-1.5">
+          <button id="reloadBtn" class="h-7 px-2.5 rounded-full bg-white border border-zinc-200 text-[11px] font-medium">Reload</button>
+          <button id="validateBtn" class="h-7 px-2.5 rounded-full bg-white border border-zinc-200 text-[11px]">Validate</button>
+          <button id="downloadBtn" class="h-7 px-2.5 rounded-full bg-zinc-900 text-white text-[11px] font-medium">Download</button>
+          <button id="clearFavsBtn" class="h-7 px-2.5 rounded-full bg-white border border-amber-200 text-amber-700 text-[11px]">Clear favs</button>
+          <button id="clearRecentBtn" class="h-7 px-2.5 rounded-full bg-white border border-zinc-200 text-[11px]">Clear recent</button>
+          <button id="clearSettingsBtn" class="h-7 px-2.5 rounded-full bg-white border border-red-200 text-red-600 text-[11px]">Wipe storage</button>
+        </div>
+        <pre id="devLog" class="mt-2.5 text-[11px] leading-[1.5] bg-white border border-zinc-200 rounded-[10px] p-2.5 overflow-auto max-h-[100px] whitespace-pre-wrap">Waiting…</pre>
+
+        <div class="mt-3 rounded-[12px] border border-zinc-800 overflow-hidden">
+          <div class="flex items-center justify-between px-3 h-9 bg-zinc-900 text-white">
+            <div class="text-[11px] font-semibold tracking-wide">Raw Debug — last fetched RSS</div>
+            <div class="flex gap-1.5">
+              <button id="copyRawBtn" class="h-6 px-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-[10px]">Copy</button>
+              <button id="downloadRawBtn" class="h-6 px-2 rounded-full bg-white text-zinc-900 text-[10px] font-medium">.xml</button>
+            </div>
+          </div>
+          <div class="px-3 py-2 bg-zinc-800 border-t border-white/10"><div id="rawMeta" class="text-[10px] leading-[1.4] text-zinc-400 break-all">No feed yet — click a source</div></div>
+          <pre id="rawXml" class="m-0 p-3 text-[10px] leading-[1.5] max-h-[320px] overflow-auto whitespace-pre-wrap break-all bg-[#0a0a0a] text-zinc-300">— raw XML will appear here —</pre>
+        </div>
+
+        <details class="mt-2"><summary class="text-[11px] text-zinc-600 cursor-pointer">Storage info</summary><pre class="mt-2 text-[10px] bg-white border rounded-[10px] p-2.5 overflow-auto">LS key: worldwire:v3:settings
+{ expanded, activeId, search, devCollapsed, favorites[], recent[] }
+recent = last 12 clicked, favs = starred ids</pre></details>
+      </div>
+    </div>
+  </aside>
+
+  <main class="min-w-0 bg-[#FAF9F6] order-1 md:order-2">
+    <div id="main" class="max-w-[860px] mx-auto p-4 md:p-8">
+      <div class="rounded-[20px] border border-zinc-200 bg-white p-6 md:p-8">
+        <h2 class="text-[20px] font-semibold tracking-tight" style="font-family:Georgia,serif">Favorites & Recent, now persistent</h2>
+        <p class="mt-2 text-[13.5px] leading-[1.6] text-zinc-600">Star any source to keep it in <b>Favorites</b>. Every click goes to <b>Recent</b> (last 12). Both live in <code>localStorage</code> and survive reloads. Dev panel is hidden by default.</p>
+        <div class="mt-5 grid md:grid-cols-3 gap-3 text-left">
+          <div class="rounded-[14px] border border-amber-200 bg-amber-50/60 p-4"><div class="text-[12px] font-semibold">★ Favorites</div><div class="mt-1 text-[12px] text-zinc-600 leading-[1.5]">Star button on each source. Pinned to top of sidebar, always visible when filtering.</div></div>
+          <div class="rounded-[14px] border border-zinc-200 bg-[#FAF9F6] p-4"><div class="text-[12px] font-semibold">🕒 Recent</div><div class="mt-1 text-[12px] text-zinc-600 leading-[1.5]">Last 12 feeds you opened. One click to re-open, with Clear button.</div></div>
+          <div class="rounded-[14px] border border-zinc-200 bg-[#FAF9F6] p-4"><div class="text-[12px] font-semibold">Raw + Dates fixed</div><div class="mt-1 text-[12px] text-zinc-600 leading-[1.5]">Raw XML in dev panel + flexible date parsing for Science Magazine and others.</div></div>
+        </div>
+      </div>
+    </div>
+    <footer class="mt-auto border-t border-zinc-200/60 py-6 px-4 md:px-8"><div class="max-w-[860px] mx-auto flex justify-between text-[11px] text-zinc-500"><span>WorldWire • favorites • recent • localStorage</span><span class="inline-flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-emerald-500"></span>ready</span></div></footer>
+  </main>
+</div>
+
+<script>
+const LS_KEY = 'worldwire:v3:settings';
+function loadSettings(){
+  try{ const r=localStorage.getItem(LS_KEY); if(!r) return {}; return JSON.parse(r)||{}; }catch{ return {}; }
+}
+function saveSettings(patch){
+  try{
+    const cur=loadSettings();
+    const next={...cur, ...patch, v:3, _at:Date.now()};
+    localStorage.setItem(LS_KEY, JSON.stringify(next));
+  }catch(e){ console.warn(e); }
+}
+let _s = loadSettings();
+
+let FEEDS = {};
+const FALLBACK_FEEDS = {
+  "World News": [
+    {"id":"bbc-world","name":"BBC World","flag":"🌍","url":"https://feeds.bbci.co.uk/news/world/rss.xml","homepage":"https://www.bbc.com/news/world"},
+    {"id":"reuters-world","name":"Reuters World","flag":"🌍","url":"https://feeds.reuters.com/reuters/worldNews","homepage":"https://www.reuters.com/world/"}
+  ],
+  "AI": [{"id":"openai-blog","name":"OpenAI Blog","flag":"🤖","url":"https://openai.com/blog/rss.xml","homepage":"https://openai.com/blog"}],
+  "Science & Nature": [{"id":"science-news","name":"Science Magazine News","flag":"🔬","url":"https://www.science.org/rss/news_current.xml","homepage":"https://www.science.org"}],
+  "Technology": [{"id":"verge-all","name":"The Verge","flag":"💻","url":"https://www.theverge.com/rss/index.xml","homepage":"https://www.theverge.com"}]
+};
+
+const els = {
+  cats: document.getElementById('cats'),
+  favSec: document.getElementById('favoritesSection'),
+  recentSec: document.getElementById('recentSection'),
+  main: document.getElementById('main'),
+  q: document.getElementById('q'),
+  qMobile: document.getElementById('qMobile'),
+  sourceText: document.getElementById('sourceText'),
+  netDot: document.getElementById('netDot'),
+  devLog: document.getElementById('devLog'),
+  devContent: document.getElementById('devContent'),
+  devToggleBtn: document.getElementById('devToggleBtn'),
+  rawMeta: document.getElementById('rawMeta'),
+  rawXml: document.getElementById('rawXml'),
+  favCountBadge: document.getElementById('favCountBadge')
+};
+
+let activeId = _s.activeId || null;
+let expanded = _s.expanded && typeof _s.expanded==='object' ? _s.expanded : {"World News":true,"AI":true};
+let searchVal = _s.search || '';
+let devCollapsed = _s.devCollapsed!==undefined ? !!_s.devCollapsed : true;
+let favorites = Array.isArray(_s.favorites) ? _s.favorites : [];
+let recent = Array.isArray(_s.recent) ? _s.recent : [];
+let lastRaw = {url:'', via:'', size:0, xml:'', at:''};
+
+if(els.q) els.q.value=searchVal;
+if(els.qMobile) els.qMobile.value=searchVal;
+
+function getSourceById(id){
+  for(const cat of Object.keys(FEEDS)){
+    const f=FEEDS[cat].find(s=>s.id===id);
+    if(f) return {...f, _cat:cat};
+  }
+  return null;
+}
+function isFavorite(id){ return favorites.includes(id); }
+function toggleFavorite(id, e){
+  if(e){ e.stopPropagation(); e.preventDefault(); }
+  if(isFavorite(id)){
+    favorites = favorites.filter(x=>x!==id);
+  } else {
+    favorites = [id, ...favorites.filter(x=>x!==id)];
+  }
+  saveSettings({favorites});
+  renderFavorites();
+  renderRecent();
+  renderCats(searchVal);
+  updateFavBadge();
+  els.devLog.textContent = (isFavorite(id)?'★ Added to favorites: ':'☆ Removed: ')+id;
+}
+function addToRecent(id){
+  recent = [id, ...recent.filter(x=>x!==id)].slice(0,12);
+  saveSettings({recent});
+  renderRecent();
+}
+function clearRecent(){ recent=[]; saveSettings({recent}); renderRecent(); }
+function clearFavs(){ favorites=[]; saveSettings({favorites}); renderFavorites(); renderCats(searchVal); updateFavBadge(); }
+
+function updateFavBadge(){
+  if(!els.favCountBadge) return;
+  if(favorites.length){ els.favCountBadge.textContent=favorites.length+' fav'; els.favCountBadge.classList.remove('hidden'); }
+  else els.favCountBadge.classList.add('hidden');
+}
+updateFavBadge();
+
+function updateDevPanelUI(){
+  if(!els.devContent||!els.devToggleBtn) return;
+  if(devCollapsed){ els.devContent.style.display='none'; els.devToggleBtn.textContent='Show'; els.devToggleBtn.className='h-7 px-3 rounded-full bg-white border border-zinc-200 text-[11px] font-medium'; }
+  else { els.devContent.style.display='block'; els.devToggleBtn.textContent='Hide'; els.devToggleBtn.className='h-7 px-3 rounded-full bg-zinc-900 text-white text-[11px] font-medium'; }
+}
+updateDevPanelUI();
+if(els.devToggleBtn){ els.devToggleBtn.onclick=()=>{ devCollapsed=!devCollapsed; saveSettings({devCollapsed}); updateDevPanelUI(); }; }
+
+function updateRawDebug(){
+  if(!els.rawMeta||!els.rawXml) return;
+  els.rawMeta.textContent = lastRaw.url ? `${lastRaw.url} • via ${lastRaw.via} • ${lastRaw.size} bytes • ${lastRaw.at}` : 'No feed yet — click a source';
+  const max=200000;
+  const txt = lastRaw.xml||'';
+  els.rawXml.textContent = txt.length>max ? txt.slice(0,max)+'\n\n… truncated '+txt.length+' bytes — Copy or Download for full' : (txt||'— raw XML will appear here —');
+}
+
+async function loadFeeds(){
+  try{
+    const r=await fetch('./feeds.json',{cache:'no-store'});
+    if(r.ok){ const j=await r.json(); if(j&&Object.keys(j).length){ FEEDS=j; return {source:'feeds.json',count:Object.values(j).flat().length}; } }
+  }catch(e){}
+  if(window.WORLDWIRE_FEEDS && Object.keys(window.WORLDWIRE_FEEDS).length){ FEEDS=window.WORLDWIRE_FEEDS; return {source:'feeds.js',count:Object.values(FEEDS).flat().length}; }
+  FEEDS=FALLBACK_FEEDS; return {source:'fallback',count:Object.values(FEEDS).flat().length};
+}
+function stripHtml(s){ const d=document.createElement('div'); d.innerHTML=s; return (d.textContent||'').replace(/\s+/g,' ').trim(); }
+
+// flexible date parsing for Science etc.
+function parseFlexibleDate(raw){
+  if(!raw) return {ts:0, raw:''};
+  let s=String(raw).trim().replace(/^\s*<!\[CDATA\[(.*)\]\]>\s*$/,'$1').trim();
+  let t=Date.parse(s); if(!isNaN(t)) return {ts:t, raw:s};
+  let m=s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if(m){ let y=+m[1],mo=+m[2]-1,d=+m[3],h=+(m[4]||0),mi=+(m[5]||0),se=+(m[6]||0); let dt=new Date(Date.UTC(y,mo,d,h,mi,se)); if(!isNaN(dt)) return {ts:dt.getTime(), raw:s}; }
+  let iso=s.match(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[^ ]*/); if(iso){ t=Date.parse(iso[0]); if(!isNaN(t)) return {ts:t, raw:s}; }
+  if(/^\d{10}(\.\d+)?$/.test(s)){ let n=parseFloat(s)*1000; return {ts:n, raw:s}; }
+  if(/^\d{13}$/.test(s)){ return {ts:parseInt(s,10), raw:s}; }
+  return {ts:0, raw:s};
+}
+function extractDateFromItem(it){
+  const sels=['pubDate','published','updated','created','issued','date','dc\\:date','dcterms\\:date','dcterms\\:created','prism\\:publicationDate','a10\\:updated'];
+  for(const sel of sels){ try{ const el=it.querySelector(sel); if(el&&el.textContent.trim()){ const p=parseFlexibleDate(el.textContent.trim()); if(p.ts) return p; } }catch{} }
+  try{ const all=it.getElementsByTagName('*'); for(let i=0;i<all.length;i++){ const el=all[i]; const name=(el.localName||el.tagName||'').toLowerCase(); if(/date|published|updated|issued|created/.test(name)){ const txt=(el.textContent||'').trim(); if(!txt||!/\d{4}/.test(txt)) continue; const p=parseFlexibleDate(txt); if(p.ts) return p; if(txt.length<100) return {ts:0, raw:txt}; } const dtAttr=el.getAttribute&& (el.getAttribute('datetime')||el.getAttribute('isopubdate')); if(dtAttr){ const p=parseFlexibleDate(dtAttr); if(p.ts) return p; } } }catch{}
+  return {ts:0, raw:''};
+}
+function fmtDate(s, ts){
+  if(ts){ const diff=(Date.now()-ts)/1000; if(diff<60) return 'now'; if(diff<3600) return Math.floor(diff/60)+'m'; if(diff<86400) return Math.floor(diff/3600)+'h'; if(diff<86400*7) return Math.floor(diff/86400)+'d'; try{ return new Date(ts).toLocaleDateString(); }catch{} }
+  return s ? String(s).slice(0,32) : '—';
+}
+
+async function fetchRSS(url){
+  const tries=[{via:'direct',u:url},{via:'allorigins',u:'https://api.allorigins.win/raw?url='+encodeURIComponent(url)},{via:'corsproxy',u:'https://corsproxy.io/?'+encodeURIComponent(url)}];
+  let last=null;
+  for(const a of tries){
+    try{
+      const r=await fetch(a.u,{headers:{Accept:'application/rss+xml, application/xml, text/xml'}});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const txt=await r.text();
+      if(txt&&txt.includes('<')){ lastRaw={url, via:a.via+' → '+a.u.slice(0,80), size:txt.length, xml:txt, at:new Date().toLocaleString()}; updateRawDebug(); return txt; }
+    }catch(e){ last=e; }
+  }
+  lastRaw={url, via:'failed', size:0, xml:'ERROR: '+(last&&last.message?last.message:String(last)), at:new Date().toLocaleString()}; updateRawDebug(); throw last||new Error('fetch failed');
+}
+function parseRSS(txt){
+  const doc=new DOMParser().parseFromString(txt,'text/xml');
+  const items=[...doc.querySelectorAll('item'),...doc.querySelectorAll('entry')];
+  return items.map((it,i)=>{
+    const g=s=>{ try{ const el=it.querySelector(s.replace(/:/g,'\\:')); return el?.textContent?.trim()||''; }catch{return '';} };
+    let title=g('title')||'Untitled'; let link=g('link'); const le=it.querySelector('link'); if((!link||link.length<4)&&le&&le.getAttribute('href')) link=le.getAttribute('href'); if(!link){ const guid=g('guid'); if(guid&&guid.startsWith('http')) link=guid; }
+    let dateInfo=extractDateFromItem(it); if(!dateInfo.ts){ const pubRaw=g('pubDate')||g('published')||g('updated')||''; if(pubRaw) dateInfo=parseFlexibleDate(pubRaw); }
+    let ts=dateInfo.ts||(Date.now()-i*60000); let pubDisplay=dateInfo.raw||''; let desc=g('description')||g('summary')||g('content')||''; if(!desc){ try{ const ce=it.querySelector('content\\:encoded'); if(ce) desc=ce.textContent||''; }catch{} } desc=stripHtml(desc).slice(0,180);
+    let author=g('author')||g('dc\\:creator')||''; if(!author){ try{ const a=it.querySelector('author name'); if(a) author=a.textContent.trim(); }catch{} }
+    return {id:ts+'-'+i,title:stripHtml(title),link,pub:pubDisplay,ts:isNaN(ts)?Date.now():ts,snippet:desc,author};
+  }).filter(a=>a.title&&a.link).slice(0,40);
+}
+
+function makeSourceRow(src, opts={}){
+  const isFav=isFavorite(src.id);
+  const isActive=activeId===src.id;
+  const row=document.createElement('div'); row.className='group flex items-center gap-1';
+  const main=document.createElement('button');
+  main.className='flex-1 text-left h-9 px-2.5 rounded-[10px] flex items-center justify-between border '+(isActive?'bg-zinc-900 text-white border-zinc-900':'bg-white border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50');
+  main.innerHTML=`<span class="flex items-center gap-2 min-w-0"><span class="text-[13px]">${src.flag||'📰'}</span><span class="text-[13px] truncate">${src.name}</span></span><span class="text-[10px] opacity-60 truncate max-w-[60px] hidden md:inline">${opts.subtitle||''}</span>`;
+  main.onclick=()=>loadFeed(src);
+  const star=document.createElement('button');
+  star.className='star-btn h-9 w-9 grid place-items-center rounded-[10px] border '+(isFav?'bg-amber-100 border-amber-200 text-amber-600':'bg-white border-zinc-200 text-zinc-400 hover:text-amber-500 hover:border-amber-200');
+  star.textContent=isFav?'★':'☆';
+  star.title=isFav?'Remove favorite':'Add favorite';
+  star.onclick=(e)=>toggleFavorite(src.id,e);
+  row.appendChild(main); row.appendChild(star);
+  return row;
+}
+
+function renderFavorites(){
+  if(!els.favSec) return;
+  els.favSec.innerHTML='';
+  if(!favorites.length){
+    els.favSec.innerHTML=`<div class="rounded-[12px] border border-dashed border-zinc-200 bg-[#FAF9F6] p-3"><div class="text-[11px] font-semibold text-zinc-600">★ Favorites</div><div class="mt-1 text-[11px] text-zinc-500">No favorites yet. Click ☆ on any source to pin it here. Saved in localStorage.</div></div>`;
+    return;
+  }
+  const det=document.createElement('details'); det.open=true; det.className='rounded-[14px] border border-amber-200 bg-amber-50/50 overflow-hidden';
+  const sum=document.createElement('summary'); sum.className='flex items-center justify-between px-3 h-10 cursor-pointer';
+  sum.innerHTML=`<span class="text-[12px] font-semibold tracking-tight">★ Favorites <span class="ml-1 text-[10px] font-normal text-zinc-500">${favorites.length}</span></span><button class="text-[10px] px-2 h-6 rounded-full bg-white border border-amber-200 hover:bg-amber-100">Clear</button>`;
+  const clearBtn=sum.querySelector('button'); if(clearBtn){ clearBtn.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); clearFavs(); }; }
+  det.appendChild(sum);
+  const wrap=document.createElement('div'); wrap.className='px-1.5 pb-2 flex flex-col gap-1';
+  favorites.forEach(id=>{
+    const src=getSourceById(id);
+    if(!src) return;
+    wrap.appendChild(makeSourceRow(src, {subtitle:src._cat}));
+  });
+  det.appendChild(wrap); els.favSec.appendChild(det);
+}
+function renderRecent(){
+  if(!els.recentSec) return;
+  els.recentSec.innerHTML='';
+  if(!recent.length){
+    els.recentSec.innerHTML=`<div class="rounded-[12px] border border-zinc-200 bg-white p-3"><div class="flex items-center justify-between"><span class="text-[11px] font-semibold text-zinc-600">🕒 Recent</span><span class="text-[10px] text-zinc-400">0</span></div><div class="mt-1 text-[11px] text-zinc-500">Recently opened feeds appear here.</div></div>`;
+    return;
+  }
+  const det=document.createElement('details'); det.open=true; det.className='rounded-[14px] border border-zinc-200 bg-white overflow-hidden';
+  const sum=document.createElement('summary'); sum.className='flex items-center justify-between px-3 h-10 cursor-pointer hover:bg-zinc-50';
+  sum.innerHTML=`<span class="text-[12px] font-semibold">🕒 Recent <span class="ml-1 text-[10px] font-normal text-zinc-500">${recent.length}/12</span></span><button class="text-[10px] px-2 h-6 rounded-full bg-[#FAF9F6] border border-zinc-200">Clear</button>`;
+  const cb=sum.querySelector('button'); if(cb){ cb.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); clearRecent(); }; }
+  det.appendChild(sum);
+  const wrap=document.createElement('div'); wrap.className='px-1.5 pb-2 flex flex-col gap-1';
+  recent.forEach(id=>{
+    const src=getSourceById(id);
+    if(!src) return;
+    wrap.appendChild(makeSourceRow(src, {subtitle:src._cat}));
+  });
+  det.appendChild(wrap); els.recentSec.appendChild(det);
+}
+
+function renderCats(filter=''){
+  const f=(filter||'').toLowerCase();
+  els.cats.innerHTML='';
+  Object.entries(FEEDS).forEach(([cat,list])=>{
+    const filtered=f?list.filter(s=>(s.name+cat).toLowerCase().includes(f)):list;
+    if(!filtered.length) return;
+    const det=document.createElement('details'); det.open=!!expanded[cat]; det.className='rounded-[14px] border border-zinc-200 bg-white overflow-hidden';
+    det.ontoggle=()=>{ expanded[cat]=det.open; saveSettings({expanded}); };
+    const sum=document.createElement('summary'); sum.className='flex items-center justify-between px-3.5 h-11 cursor-pointer hover:bg-zinc-50';
+    sum.innerHTML=`<span class="text-[13px] font-[600] tracking-tight">${cat}</span><span class="text-[11px] px-2 h-5 grid place-items-center rounded-full bg-[#FAF9F6] border border-zinc-200 text-zinc-500">${filtered.length}</span>`;
+    det.appendChild(sum);
+    const wrap=document.createElement('div'); wrap.className='px-1.5 pb-2 flex flex-col gap-1';
+    filtered.forEach(src=>{ wrap.appendChild(makeSourceRow(src)); });
+    det.appendChild(wrap); els.cats.appendChild(det);
+  });
+}
+
+function setMain(html){ els.main.innerHTML=html; }
+async function loadFeed(src){
+  activeId=src.id; saveSettings({activeId}); addToRecent(src.id); renderCats(searchVal); renderFavorites(); renderRecent(); updateFavBadge();
+  setMain(`<div class="rounded-[16px] border border-zinc-200 bg-white p-4"><div class="flex items-center gap-2"><span>${src.flag}</span><b class="text-[14px]">${src.name}</b><span class="text-[12px] text-zinc-500">— loading</span></div><div class="mt-3 h-1.5 bg-zinc-100 rounded-full overflow-hidden"><div class="h-full w-1/3 bg-zinc-900 animate-[shimmer_1s_ease-in-out_infinite]"></div></div></div><style>@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}</style>`);
+  try{
+    const xml=await fetchRSS(src.url); const arts=parseRSS(xml);
+    const html=`<div class="space-y-3">
+      <div class="rounded-[16px] border border-zinc-200 bg-white p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="min-w-0"><div class="flex items-center gap-2 flex-wrap"><span class="text-[13px] font-semibold">${src.flag} ${src.name}</span><span class="h-6 px-2.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-medium grid place-items-center">${arts.length} stories</span><button onclick="toggleFavorite('${src.id}')" class="h-6 px-2.5 rounded-full ${isFavorite(src.id)?'bg-amber-100 border-amber-200 text-amber-700':'bg-white border-zinc-200 text-zinc-600'} border text-[11px] font-medium">${isFavorite(src.id)?'★ Favorited':'☆ Favorite'}</button><a href="${src.homepage}" target="_blank" class="text-[11px] px-2 py-1 rounded-full bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-600">Homepage ↗</a></div><div class="mt-1 text-[12px] text-zinc-500 truncate">${src.url}</div></div>
+        <div class="flex gap-2"><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.3-4.3"/></svg></span><input id="artQ" placeholder="Search in feed…" class="w-full md:w-[240px] h-9 rounded-full border border-zinc-200 bg-white pl-8 pr-3 text-[13px]"/></div></div>
+      </div>
+      <div id="artList" class="grid gap-3">${arts.map(a=>`<article class="group rounded-[16px] border border-zinc-200 bg-white p-4 md:p-5 hover:border-zinc-300 hover:shadow-[0_6px_18px_-12px_rgba(0,0,0,0.25)] transition"><div class="flex gap-3"><div class="flex-1 min-w-0"><a href="${a.link}" target="_blank" class="block"><h3 class="text-[15.5px] md:text-[16.5px] leading-[1.35] font-[600] tracking-[-0.01em] text-zinc-900 group-hover:text-black" style="font-family:Georgia,serif">${a.title}</h3></a><div class="mt-2 flex flex-wrap items-center gap-2 text-[11.5px]"><span class="inline-flex items-center gap-1.5 h-6 px-2 rounded-full bg-[#FAF9F6] border border-zinc-200 text-zinc-600"><span class="w-1 h-1 rounded-full bg-zinc-400"></span>${fmtDate(a.pub,a.ts)}</span><span class="text-zinc-300">·</span><span class="text-zinc-500">${src.name}</span>${a.author?`<span class="text-zinc-400 truncate">by ${a.author.slice(0,32)}</span>`:''}</div>${a.snippet?`<p class="mt-2.5 text-[13.5px] leading-[1.6] text-zinc-600 line-clamp-2">${a.snippet}…</p>`:''}</div><div class="hidden md:flex flex-col gap-1.5 shrink-0"><a href="${a.link}" target="_blank" class="h-8 px-3.5 rounded-full bg-zinc-900 text-white text-[12.5px] font-medium grid place-items-center hover:bg-black">Read</a><button onclick="navigator.clipboard.writeText('${a.link.replace(/'/g,"\\'")}')" class="h-8 px-3 rounded-full bg-white border border-zinc-200 text-[12px] text-zinc-600 hover:border-zinc-300">Copy</button></div></div><div class="md:hidden mt-3 flex gap-2"><a href="${a.link}" target="_blank" class="flex-1 h-9 rounded-full bg-zinc-900 text-white text-[13px] grid place-items-center">Read story</a><button onclick="navigator.clipboard.writeText('${a.link.replace(/'/g,"\\'")}')" class="h-9 px-3.5 rounded-full bg-white border">Copy</button></div></article>`).join('')}</div>
+    </div>`;
+    setMain(html);
+    document.getElementById('artQ')?.addEventListener('input',e=>{ const q=e.target.value.toLowerCase(); document.querySelectorAll('#artList article').forEach(el=>{ const t=el.querySelector('h3')?.textContent?.toLowerCase()||''; el.style.display=t.includes(q)?'':'none'; }); });
+  }catch(err){ setMain(`<div class="rounded-[16px] border border-red-200 bg-red-50 p-5"><b class="text-[14px]">Failed to load feed</b><div class="text-[12px] text-zinc-600 mt-1 leading-[1.5]">${src.flag||'📰'} <b>${src.name}</b> — <span class="font-mono text-[11px] break-all">${src.url}</span><br/><span class="text-[11px]">${String(err.message||err)}</span></div><div class="mt-3 flex flex-wrap gap-2"><button onclick="loadFeedById('${src.id}')" class="h-8 px-3.5 rounded-full bg-zinc-900 text-white text-[13px] font-medium">Retry</button><a href="${src.url}" target="_blank" rel="noopener" class="h-8 px-3.5 rounded-full bg-white border border-zinc-200 text-[13px] font-medium grid place-items-center hover:border-zinc-300">Open RSS ↗</a><a href="${src.homepage}" target="_blank" rel="noopener" class="h-8 px-3.5 rounded-full bg-white border border-zinc-200 text-[13px] font-medium grid place-items-center hover:border-zinc-300">Open Homepage ↗</a><button onclick="toggleFavorite('${src.id}')" class="h-8 px-3.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[13px]">${isFavorite(src.id)?'★ Favorited':'☆ Favorite'}</button></div><div class="mt-2 text-[11px] text-zinc-500">Check Raw Debug in Developer panel.</div></div>`); }
+}
+function loadFeedById(id){ const src=getSourceById(id); if(src) loadFeed(src); else location.reload(); }
+
+function onSearchInput(e){
+  const v=e.target.value; searchVal=v; saveSettings({search:v});
+  renderCats(v); renderFavorites(); renderRecent();
+  if(els.q && els.q!==e.target) els.q.value=v;
+  if(els.qMobile && els.qMobile!==e.target) els.qMobile.value=v;
+}
+['q','qMobile'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input',onSearchInput); });
+
+document.getElementById('reloadBtn').onclick=async()=>{ const i=await loadFeeds(); renderCats(searchVal); renderFavorites(); renderRecent(); els.sourceText.textContent=`Source: ${i.source} • ${i.count} feeds`; els.devLog.textContent=`Reloaded ${i.count} from ${i.source} at ${new Date().toLocaleTimeString()}`; };
+document.getElementById('validateBtn').onclick=()=>{ let n=0,errs=[]; Object.entries(FEEDS).forEach(([c,l])=>l.forEach(s=>{n++; if(!s.url?.startsWith('http')) errs.push(`${c}/${s.name}: bad url`); if(!s.id) errs.push(`${c}/${s.name}: missing id`)})); els.devLog.textContent=errs.length?`Found ${errs.length} issues in ${n}:\n`+errs.join('\n'):`OK — ${n} feeds validated, ${favorites.length} favs, ${recent.length} recent`; };
+document.getElementById('downloadBtn').onclick=()=>{ const b=new Blob([JSON.stringify(FEEDS,null,2)],{type:'application/json'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='feeds.json'; a.click(); URL.revokeObjectURL(u); };
+document.getElementById('clearFavsBtn').onclick=clearFavs;
+document.getElementById('clearRecentBtn').onclick=clearRecent;
+document.getElementById('clearSettingsBtn').onclick=()=>{ if(confirm('Wipe all WorldWire settings (favorites, recent, expanded, search)?')){ localStorage.removeItem(LS_KEY); location.reload(); } };
+document.getElementById('clearStorageBtn').onclick=()=>{ if(confirm('Clear all WorldWire settings?')){ localStorage.removeItem(LS_KEY); location.reload(); } };
+document.getElementById('copyRawBtn').onclick=async()=>{ try{ await navigator.clipboard.writeText(lastRaw.xml||''); const b=document.getElementById('copyRawBtn'); const o=b.textContent; b.textContent='Copied!'; setTimeout(()=>b.textContent=o,1200);}catch{ const ta=document.createElement('textarea'); ta.value=lastRaw.xml||''; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } };
+document.getElementById('downloadRawBtn').onclick=()=>{ const safe=(lastRaw.url||'feed').replace(/[^a-z0-9]/gi,'_').slice(0,40); const blob=new Blob([lastRaw.xml||''],{type:'application/xml'}); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=safe+'.xml'; a.click(); URL.revokeObjectURL(u); };
+
+// PWA
+(function(){
+  try{
+    const c=document.createElement('canvas'); c.width=512; c.height=512; const x=c.getContext('2d'); x.fillStyle='#111'; x.fillRect(0,0,512,512); x.fillStyle='#fff'; x.font='700 200px system-ui'; x.textAlign='center'; x.textBaseline='middle'; x.fillText('WW',256,280);
+    const i512=c.toDataURL('image/png'); const c2=document.createElement('canvas'); c2.width=192; c2.height=192; c2.getContext('2d').drawImage(c,0,0,192,192); const i192=c2.toDataURL('image/png');
+    const mf={name:"WorldWire",short_name:"WorldWire",start_url:".",scope:".",display:"standalone",background_color:"#FAF9F6",theme_color:"#111111",icons:[{src:i192,sizes:"192x192",type:"image/png",purpose:"any maskable"},{src:i512,sizes:"512x512",type:"image/png"}]}; const b=new Blob([JSON.stringify(mf)],{type:'application/json'}); document.getElementById('pwa-manifest-link').href=URL.createObjectURL(b);
+  }catch{}
+  if('serviceWorker' in navigator){ const sw=`const C='worldwire-v4';self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./feeds.json','./feeds.js']).catch(()=>c.addAll(['./']))))});self.addEventListener('activate',e=>self.clients.claim());self.addEventListener('fetch',e=>{const u=e.request.url;if(u.includes('allorigins')||u.includes('corsproxy')||u.includes('rss')||u.endsWith('.xml')){e.respondWith(fetch(e.request));return;}e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(s=>{caches.open(C).then(c=>c.put(e.request,s.clone()));return s;})));});`; const u=URL.createObjectURL(new Blob([sw],{type:'text/javascript'})); navigator.serviceWorker.register(u).catch(()=>{}); }
+  let d=null; window.addEventListener('beforeinstallprompt',e=>{e.preventDefault(); d=e; document.getElementById('installBtn').style.display='inline-flex';}); document.getElementById('installBtn').onclick=async()=>{ if(!d) return; d.prompt(); await d.userChoice; d=null; document.getElementById('installBtn').style.display='none'; };
+  window.addEventListener('online',()=>{ document.getElementById('netDot').className='w-1.5 h-1.5 rounded-full bg-emerald-500'; document.getElementById('offlineHint').classList.add('hidden'); }); window.addEventListener('offline',()=>{ document.getElementById('netDot').className='w-1.5 h-1.5 rounded-full bg-zinc-400'; document.getElementById('offlineHint').classList.remove('hidden'); });
+})();
+
+(async()=>{
+  const i=await loadFeeds();
+  els.sourceText.textContent=`Source: ${i.source} • ${i.count} feeds`;
+  els.devLog.textContent=`Loaded ${i.count} from ${i.source} at ${new Date().toLocaleTimeString()} | LS ${Object.keys(_s).length?'restored':'fresh'}`;
+  renderFavorites(); renderRecent(); renderCats(searchVal); updateRawDebug();
+  if(activeId){ const src=getSourceById(activeId); if(src) setTimeout(()=>loadFeed(src), 250); }
+})();
+</script>
+</body>
+</html>
